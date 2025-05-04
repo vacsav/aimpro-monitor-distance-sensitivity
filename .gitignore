@@ -1,0 +1,7 @@
+*.wotmod
+*.zip
+*.pyc
+*.xml
+*.bat
+
+WORKDIR/
