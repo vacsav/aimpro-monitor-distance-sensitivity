@@ -94,7 +94,7 @@ Zoom = **`sniperMode`** sensitivity
 - Adjust the **`arcadeMode`** sensitivity using the slider in the game settings  
 **or**  
 - Adjust sensitivity by multiplier in the **`preferences.xml`** file at the path:
-  - Go to **`%APPDATA%\wargaming.net\WorldOfTanks`**
+  - Go to **`%APPDATA%\Wargaming.net\WorldOfTanks`** or **`%APPDATA%\Lesta\MirTankov`**
   - Edit **`preferences.xml`**
   - Change **`<sensitivity>`** in **`<arcadeMode>`**
   - Save your changes
@@ -228,7 +228,7 @@ HighMM
 - Настройте чувствительность режима **`arcadeMode`** с помощью ползунка в настройках игры  
 **или**  
 - Настройте чувствительность с помощью множителя в файле **`preferences.xml`** по пути:
-  - Перейдите в **`%APPDATA%\wargaming.net\WorldOfTanks`**
+  - Перейдите в **`%APPDATA%\Wargaming.net\WorldOfTanks`** или **`%APPDATA%\Lesta\MirTankov`**
   - Отредактируйте **`preferences.xml`**
   - Измените **`<sensitivity>`** в **`<arcadeMode>`**
   - Сохраните изменения
