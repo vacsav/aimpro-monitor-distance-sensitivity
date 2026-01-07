@@ -1,17 +1,21 @@
 import math, BigWorld
-from AvatarInputHandler.DynamicCameras import CameraWithSettings
+from AvatarInputHandler.DynamicCameras import CameraWithSettings, createCrosshairMatrix
 from AvatarInputHandler.DynamicCameras.ArcadeCamera import ArcadeCamera
 from AvatarInputHandler.DynamicCameras.SniperCamera import SniperCamera
 from AvatarInputHandler.cameras import FovExtended
 
-def overrideIn(cls, condition=lambda : True):
+
+def overrideIn(cls, condition=lambda: True):
 
     def _overrideMethod(func):
         if not condition():
             return func
+
         funcName = func.__name__
-        if funcName.startswith('__'):
-            funcName = '_' + cls.__name__ + funcName
+
+        if funcName.startswith("__") and funcName != "__init__":
+            funcName = "_" + cls.__name__ + funcName
+
         old = getattr(cls, funcName)
 
         def wrapper(*args, **kwargs):
@@ -19,32 +23,44 @@ def overrideIn(cls, condition=lambda : True):
 
         setattr(cls, funcName, wrapper)
         return wrapper
-
     return _overrideMethod
+
+
+orig_init = SniperCamera.__init__
+def mod_init(self, *args, **kwargs):
+    orig_init(self, *args, **kwargs)
+    self.__arcadeSensitivity = None
+    self.__tanRatio = 1.0
+    self.__fovRatio = 1.0
+    self.__sensitivityMultiplier = 1.0
+SniperCamera.__init__ = mod_init
 
 
 @overrideIn(SniperCamera)
 def update(func, self, dx, dy, dz, updatedByKeyboard=False):
-    cfg = self._cfg
-    key_sensitivity = cfg['keySensitivity']
-    scroll_sensitivity = cfg['scrollSensitivity']
-    arcade_sensitivity = CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
-    arcade_fov = FovExtended.instance().actualDefaultVerticalFov
-    sniper_fov = BigWorld.projection().fov
-    DPI = 1000
-    YAW = 0.143239448
-    base_sensitivity = 360 / (DPI * YAW)
-    tan_ratio = math.tan(sniper_fov / 2) / math.tan(arcade_fov / 2)
-    fov_ratio = sniper_fov / arcade_fov
-    fl_sensitivity = arcade_sensitivity * tan_ratio
-    mdv_sensitivity = arcade_sensitivity * fov_ratio
-    fl_sensitivity_360 = base_sensitivity / fl_sensitivity
-    mdv_sensitivity_360 = base_sensitivity / mdv_sensitivity
-    avg_sensitivity_360 = (fl_sensitivity_360 + mdv_sensitivity_360) / 2
-    sensitivity = 360 / (avg_sensitivity_360 * DPI * YAW)
-    self._SniperCamera__curSense = key_sensitivity if updatedByKeyboard else sensitivity
-    self._SniperCamera__curScrollSense = key_sensitivity if updatedByKeyboard else scroll_sensitivity
-    dx_dy_dz = (dx, dy, dz) if updatedByKeyboard else (0, 0, 0)
-    self._SniperCamera__autoUpdateDxDyDz.set(*dx_dy_dz)
-    if not updatedByKeyboard:
+    self.__arcadeSensitivity = CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
+    self._SniperCamera__curSense = self._cfg['keySensitivity'] if updatedByKeyboard else self.__sensitivityMultiplier
+    self._SniperCamera__curScrollSense = self._cfg['keySensitivity'] if updatedByKeyboard else self._cfg['scrollSensitivity']
+    if updatedByKeyboard:
+        self._SniperCamera__autoUpdateDxDyDz.set(dx, dy, dz)
+    else:
+        self._SniperCamera__autoUpdateDxDyDz.set(0, 0, 0)
         self._SniperCamera__rotateAndZoom(dx, dy, dz)
+
+
+@overrideIn(SniperCamera)
+def __updateCrosshairMatrix(func, self):
+    if self.__arcadeSensitivity is None:
+        self.__arcadeSensitivity = CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
+    arcadeFov = FovExtended.instance().actualDefaultVerticalFov
+    currentFov = BigWorld.projection().fov
+    tanCurrentFov = math.tan(currentFov / 2)
+    tanArcade = math.tan(arcadeFov / 2)
+    self.__tanRatio = tanCurrentFov / tanArcade
+    self.__fovRatio = currentFov / arcadeFov
+    invTan = 1.0 / self.__tanRatio
+    invFov = 1.0 / self.__fovRatio
+    self.__sensitivityMultiplier = (self.__arcadeSensitivity * 2.0 / (invTan + invFov))
+    curClipPlaneScale = tanCurrentFov
+    aimMarkerDistance = self._SniperCamera__aimMarkerDistance * self._DEFAULT_CLIP_PLANE_SCALE / curClipPlaneScale
+    self._SniperCamera__crosshairMatrix = createCrosshairMatrix(offsetFromNearPlane=aimMarkerDistance)
