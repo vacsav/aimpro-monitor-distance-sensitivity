@@ -48,8 +48,6 @@ def update(func, self, dx, dy, dz, updatedByKeyboard=False):
 
 @overrideIn(SniperCamera)
 def __updateCrosshairMatrix(func, self):
-    if self.__arcadeSensitivity is None:
-        self.__arcadeSensitivity = CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
     arcadeFov = FovExtended.instance().actualDefaultVerticalFov
     currentFov = BigWorld.projection().fov
     tanCurrentFov = math.tan(currentFov / 2)

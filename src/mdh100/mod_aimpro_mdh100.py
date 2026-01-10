@@ -29,7 +29,7 @@ def overrideIn(cls, condition=lambda: True):
 orig_init = SniperCamera.__init__
 def mod_init(self, *args, **kwargs):
     orig_init(self, *args, **kwargs)
-    self.__aspectRatio = BigWorld.getAspectRatio()
+    self.__aspectRatio = None
     self.__arcadeSensitivity = None
     self.__sensitivityMultiplier = 1.0
 SniperCamera.__init__ = mod_init
@@ -49,8 +49,7 @@ def update(func, self, dx, dy, dz, updatedByKeyboard=False):
 
 @overrideIn(SniperCamera)
 def __updateCrosshairMatrix(func, self):
-    if self.__arcadeSensitivity is None:
-        self.__arcadeSensitivity = CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
+    self.__aspectRatio = BigWorld.getAspectRatio()
     arcadeFov = FovExtended.instance().actualDefaultVerticalFov
     currentFov = BigWorld.projection().fov
     tanCurrentFov = math.tan(currentFov / 2)

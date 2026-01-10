@@ -39,7 +39,7 @@ SniperCamera.__init__ = mod_init
 @overrideIn(SniperCamera)
 def update(func, self, dx, dy, dz, updatedByKeyboard=False):
     self.__arcadeSensitivity = CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
-    self._SniperCamera__curSense = self._cfg['keySensitivity'] if updatedByKeyboard else self.__sensitivityMultiplier
+    self._SniperCamera__curSense = self._cfg['keySensitivity'] if updatedByKeyboard else self.__arcadeSensitivity * self.__sensitivityMultiplier
     self._SniperCamera__curScrollSense = self._cfg['keySensitivity'] if updatedByKeyboard else self._cfg['scrollSensitivity']
     if updatedByKeyboard:
         self._SniperCamera__autoUpdateDxDyDz.set(dx, dy, dz)
@@ -50,8 +50,6 @@ def update(func, self, dx, dy, dz, updatedByKeyboard=False):
 
 @overrideIn(SniperCamera)
 def __updateCrosshairMatrix(func, self):
-    if self.__arcadeSensitivity is None:
-        self.__arcadeSensitivity = CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
     arcadeFov = FovExtended.instance().actualDefaultVerticalFov
     currentFov = BigWorld.projection().fov
     tanCurrentFov = math.tan(currentFov / 2)
@@ -60,7 +58,7 @@ def __updateCrosshairMatrix(func, self):
     self.__fovRatio = currentFov / arcadeFov
     invTan = 1.0 / self.__tanRatio
     invFov = 1.0 / self.__fovRatio
-    self.__sensitivityMultiplier = (self.__arcadeSensitivity * 2.0 / (invTan + invFov))
+    self.__sensitivityMultiplier = 2.0 / (invTan + invFov)
     curClipPlaneScale = tanCurrentFov
     aimMarkerDistance = self._SniperCamera__aimMarkerDistance * self._DEFAULT_CLIP_PLANE_SCALE / curClipPlaneScale
     self._SniperCamera__crosshairMatrix = createCrosshairMatrix(offsetFromNearPlane=aimMarkerDistance)
