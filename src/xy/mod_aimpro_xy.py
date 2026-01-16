@@ -1,10 +1,8 @@
-import os, json, math, BigWorld
+import os, json
 import AvatarInputHandler.DynamicCameras
-from AvatarInputHandler.DynamicCameras import CameraWithSettings, createCrosshairMatrix
 from AvatarInputHandler.DynamicCameras.ArcadeCamera import ArcadeCamera
 from AvatarInputHandler.DynamicCameras.SniperCamera import SniperCamera
 from AvatarInputHandler.DynamicCameras.arcade_camera_helper import EScrollDir
-from AvatarInputHandler.cameras import FovExtended
 from realm import CURRENT_REALM
 
 
@@ -64,9 +62,9 @@ def ensureConfigExists():
         with open(CONFIG_PATH, 'w') as f:
             json.dump(DEFAULT_CONFIG, f, indent=4)
 
-        print('[mod_aimpro_fl] config.json created with defaults')
+        print('[mod_aimpro_xy] config.json created with defaults')
     except Exception as e:
-        print('[mod_aimpro_fl] Failed to create config.json:', e)
+        print('[mod_aimpro_xy] Failed to create config.json:', e)
 
 def loadConfig():
     ensureConfigExists()
@@ -75,7 +73,7 @@ def loadConfig():
         with open(CONFIG_PATH, 'r') as f:
             return json.load(f)
     except Exception:
-        print('[mod_aimpro_fl] Failed to load config.json, using defaults')
+        print('[mod_aimpro_xy] Failed to load config.json, using defaults')
         return DEFAULT_CONFIG.copy()
 
 CONFIG = loadConfig()
@@ -110,7 +108,6 @@ def mod_sniper_init(self, *args, **kwargs):
     orig_sniper_init(self, *args, **kwargs)
     self.__curSenseX = 0
     self.__curSenseY = 0
-    self.__sensitivityMultiplier = 1.0
 SniperCamera.__init__ = mod_sniper_init
 
 
@@ -134,7 +131,7 @@ def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedBy
 
 @overrideIn(ArcadeCamera, condition=isClientWG)
 def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedByKeyboard = False):
-    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else (self._ArcadeCamera__sensitivity * self._userCfg['sensitivity']) if self._ArcadeCamera__sensitivity else self._cfg['sensitivity']
+    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else (self._ArcadeCamera__sensitivity * self._userCfg['sensitivity'] * ARCADE_SENS_MP) if self._ArcadeCamera__sensitivity else self._cfg['sensitivity']
     cfg_MP = cfg * ARCADE_SENS_MP
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
@@ -159,14 +156,14 @@ def __updateAngles(func, self, dx, dy):
 
 @overrideIn(SniperCamera)
 def update(func, self, dx, dy, dz, updatedByKeyboard=False):
-    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
+    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else self._cfg['sensitivity']
     cfg_MP = cfg * SNIPER_SENS_MP
-    sens_MP = self.__sensitivityMultiplier
+    zoom = self._SniperCamera__zoom
     self.__curSenseX = cfg_MP * SNIPER_X_MP
     self.__curSenseY = cfg_MP * SNIPER_Y_MP
     self._SniperCamera__curScrollSense = self._cfg['keySensitivity'] if updatedByKeyboard else self._cfg['scrollSensitivity']
-    self.__curSenseX *= sens_MP
-    self.__curSenseY *= sens_MP
+    self.__curSenseX *= 1.0 / zoom
+    self.__curSenseY *= 1.0 / zoom
     if updatedByKeyboard:
         self._SniperCamera__autoUpdateDxDyDz.set(dx, dy, dz)
     else:
@@ -179,13 +176,3 @@ def __rotateAndZoom(func, self, dx, dy, dz):
     yawDelta, pitchDelta = calcYawPitchDelta(self._cfg, self.__curSenseX, self.__curSenseY, dx, dy)
     self._SniperCamera__aimingSystem.handleMovement(yawDelta, pitchDelta)
     self._SniperCamera__setupZoom(dz)
-
-
-@overrideIn(SniperCamera)
-def __updateCrosshairMatrix(func, self):
-    arcadeFov = FovExtended.instance().actualDefaultVerticalFov
-    currentFov = BigWorld.projection().fov
-    curClipPlaneScale = math.tan(currentFov / 2)
-    self.__sensitivityMultiplier = curClipPlaneScale / math.tan(arcadeFov / 2)
-    aimMarkerDistance = self._SniperCamera__aimMarkerDistance * self._DEFAULT_CLIP_PLANE_SCALE / curClipPlaneScale
-    self._SniperCamera__crosshairMatrix = createCrosshairMatrix(offsetFromNearPlane=aimMarkerDistance)
