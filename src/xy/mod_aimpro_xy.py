@@ -131,7 +131,7 @@ def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedBy
 
 @overrideIn(ArcadeCamera, condition=isClientWG)
 def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedByKeyboard = False):
-    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else (self._ArcadeCamera__sensitivity * self._userCfg['sensitivity'] * ARCADE_SENS_MP) if self._ArcadeCamera__sensitivity else self._cfg['sensitivity']
+    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else (self._ArcadeCamera__sensitivity * self._userCfg['sensitivity']) if self._ArcadeCamera__sensitivity else self._cfg['sensitivity']
     cfg_MP = cfg * ARCADE_SENS_MP
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
