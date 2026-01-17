@@ -64,9 +64,9 @@ def ensureConfigExists():
         with open(CONFIG_PATH, 'w') as f:
             json.dump(DEFAULT_CONFIG, f, indent=4)
 
-        print('[mod_aimpro_fl] config.json created with defaults')
+        print('[mod_aimpro_mdv100] config.json created with defaults')
     except Exception as e:
-        print('[mod_aimpro_fl] Failed to create config.json:', e)
+        print('[mod_aimpro_mdv100] Failed to create config.json:', e)
 
 def loadConfig():
     ensureConfigExists()
@@ -75,7 +75,7 @@ def loadConfig():
         with open(CONFIG_PATH, 'r') as f:
             return json.load(f)
     except Exception:
-        print('[mod_aimpro_fl] Failed to load config.json, using defaults')
+        print('[mod_aimpro_mdv100] Failed to load config.json, using defaults')
         return DEFAULT_CONFIG.copy()
 
 CONFIG = loadConfig()
