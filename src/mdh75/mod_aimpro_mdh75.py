@@ -16,7 +16,7 @@ def isClientWG():
     return not isClientLesta()
 
 
-def overrideIn(cls, condition=lambda: True):
+def overrideIn(cls, condition = lambda: True):
 
     def _overrideMethod(func):
         if not condition():
@@ -84,70 +84,111 @@ ARCADE_CFG = CONFIG.get('Arcade', {})
 ARCADE_Y_MP  = float(ARCADE_CFG.get('Y_Multiplier', 1.0))
 ARCADE_X_MP  = float(ARCADE_CFG.get('X_Multiplier', 1.0))
 ARCADE_SENS_MP = float(ARCADE_CFG.get('Sensitivity_Multiplier', 1.0))
+ARCADE_TOTAL_X_MP = (ARCADE_SENS_MP * ARCADE_X_MP)
+ARCADE_TOTAL_Y_MP = (ARCADE_SENS_MP * ARCADE_Y_MP)
 
 SNIPER_CFG = CONFIG.get('Sniper', {})
 SNIPER_Y_MP  = float(SNIPER_CFG.get('Y_Multiplier', 1.0))
 SNIPER_X_MP  = float(SNIPER_CFG.get('X_Multiplier', 1.0))
 SNIPER_SENS_MP = float(SNIPER_CFG.get('Sensitivity_Multiplier', 1.0))
+SNIPER_TOTAL_X_MP = (SNIPER_SENS_MP * SNIPER_X_MP)
+SNIPER_TOTAL_Y_MP = (SNIPER_SENS_MP * SNIPER_Y_MP)
 
 
-def mod_calcYawPitchDelta(cfg, curSenseX, curSenseY, dx, dy):
+VANILLA_ARCADE_CFG = None
+def getArcadeSensitivity():
+    global VANILLA_ARCADE_CFG
+    if VANILLA_ARCADE_CFG is None:
+        VANILLA_ARCADE_CFG = CameraWithSettings._CameraWithSettings__configs.get('ArcadeCamera')
+    return VANILLA_ARCADE_CFG['sensitivity'] if VANILLA_ARCADE_CFG else 1.0
+
+
+CACHED_MDH_DATA = None
+LAST_KNOWN_ARCADE_FOV = None
+LAST_KNOWN_ASPECT_RATIO = None
+def getMonitorDistanceHorizontalData():
+    global CACHED_MDH_DATA, LAST_KNOWN_ARCADE_FOV, LAST_KNOWN_ASPECT_RATIO
+    arcadeFov = FovExtended.instance().actualDefaultVerticalFov
+    aspectRatio = BigWorld.getAspectRatio()
+    if CACHED_MDH_DATA is None or arcadeFov != LAST_KNOWN_ARCADE_FOV or aspectRatio != LAST_KNOWN_ASPECT_RATIO:
+        LAST_KNOWN_ARCADE_FOV = arcadeFov
+        LAST_KNOWN_ASPECT_RATIO = aspectRatio
+        totalAspectRatio = (aspectRatio * 0.75)
+        tanArcadeFov = math.tan(arcadeFov * 0.5)
+        CACHED_MDH_DATA = (totalAspectRatio, math.atan(tanArcadeFov * totalAspectRatio))
+    return CACHED_MDH_DATA
+
+
+def modCalcYawPitchDelta(cfg, curSenseX, curSenseY, dx, dy):
     return (dx * curSenseX * (-1 if cfg['horzInvert'] else 1), dy * curSenseY * (-1 if cfg['vertInvert'] else 1))
-AvatarInputHandler.DynamicCameras.calcYawPitchDelta = mod_calcYawPitchDelta
+AvatarInputHandler.DynamicCameras.calcYawPitchDelta = modCalcYawPitchDelta
 calcYawPitchDelta = AvatarInputHandler.DynamicCameras.calcYawPitchDelta
 
 
-orig_arcade_init = ArcadeCamera.__init__
-def mod_arcade_init(self, *args, **kwargs):
-    orig_arcade_init(self, *args, **kwargs)
+origArcadeInit = ArcadeCamera.__init__
+def modArcadeInit(self, *args, **kwargs):
+    origArcadeInit(self, *args, **kwargs)
     self._ArcadeCamera__curSenseX = 0
     self._ArcadeCamera__curSenseY = 0
-ArcadeCamera.__init__ = mod_arcade_init
+ArcadeCamera.__init__ = modArcadeInit
 
 
-orig_sniper_init = SniperCamera.__init__
-def mod_sniper_init(self, *args, **kwargs):
-    orig_sniper_init(self, *args, **kwargs)
-    self.__curSenseX = 0
-    self.__curSenseY = 0
-    self.__sensitivityMultiplier = 1.0
-SniperCamera.__init__ = mod_sniper_init
+origSniperInit = SniperCamera.__init__
+def modSniperInit(self, *args, **kwargs):
+    origSniperInit(self, *args, **kwargs)
+    self._SniperCamera__curSenseX = 0
+    self._SniperCamera__curSenseY = 0
+    self._SniperCamera__sensitivityMultiplier = 1.0
+SniperCamera.__init__ = modSniperInit
 
 
 @overrideIn(ArcadeCamera, condition=isClientLesta)
 def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedByKeyboard = False):
-    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else self._ArcadeCamera__sensitivity
-    cfg_MP = cfg * ARCADE_SENS_MP
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
         self._ArcadeCamera__overScrollProtector.updateOnScroll(eScrollDirection)
-    self._ArcadeCamera__curSenseX = cfg_MP * ARCADE_X_MP
-    self._ArcadeCamera__curSenseY = cfg_MP * ARCADE_Y_MP
-    self._ArcadeCamera__curScrollSense = self._cfg['keySensitivity'] if updatedByKeyboard else self._ArcadeCamera__scrollSensitivity
-    self._ArcadeCamera__updatedByKeyboard = updatedByKeyboard
+    cfgData = self._cfg
     if updatedByKeyboard:
-        self._ArcadeCamera__autoUpdateDxDyDz.set(dx, dy, dz)
+        cfg = cfgData['keySensitivity']
+        scroll = cfg
     else:
+        cfg = self._ArcadeCamera__sensitivity
+        scroll = self._ArcadeCamera__scrollSensitivity
+    self._ArcadeCamera__curSenseX = (ARCADE_TOTAL_X_MP * cfg)
+    self._ArcadeCamera__curSenseY = (ARCADE_TOTAL_Y_MP * cfg)
+    self._ArcadeCamera__curScrollSense = scroll
+    self._ArcadeCamera__updatedByKeyboard = updatedByKeyboard
+    if not updatedByKeyboard:
         self._ArcadeCamera__autoUpdateDxDyDz.set(0)
         self._ArcadeCamera__update(dx, dy, dz, rotateMode, zoomMode)
+        return
+    self._ArcadeCamera__autoUpdateDxDyDz.set(dx, dy, dz)
 
 
 @overrideIn(ArcadeCamera, condition=isClientWG)
-def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedByKeyboard = False):
-    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else (self._ArcadeCamera__sensitivity * self._userCfg['sensitivity']) if self._ArcadeCamera__sensitivity else self._cfg['sensitivity']
-    cfg_MP = cfg * ARCADE_SENS_MP
+def update(func, self, dx, dy, dz, rotateMode=True, zoomMode=True, updatedByKeyboard=False):
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
         self._ArcadeCamera__overScrollProtector.updateOnScroll(eScrollDirection)
-    self._ArcadeCamera__curSenseX = cfg_MP * ARCADE_X_MP
-    self._ArcadeCamera__curSenseY = cfg_MP * ARCADE_Y_MP
-    self._ArcadeCamera__curScrollSense = self._cfg['keySensitivity'] if updatedByKeyboard else self._ArcadeCamera__scrollSensitivity
-    self._ArcadeCamera__updatedByKeyboard = updatedByKeyboard
+    cfgData = self._cfg
     if updatedByKeyboard:
-        self._ArcadeCamera__autoUpdateDxDyDz.set(dx, dy, dz)
+        cfg = cfgData['keySensitivity']
+        scroll = cfg
+    elif self._ArcadeCamera__sensitivity:
+        cfg = self._ArcadeCamera__sensitivity * self._userCfg['sensitivity']
+        scroll = self._ArcadeCamera__scrollSensitivity
     else:
+        cfg = cfgData['sensitivity']
+        scroll = self._ArcadeCamera__scrollSensitivity
+    self._ArcadeCamera__curSenseX = ARCADE_TOTAL_X_MP * cfg
+    self._ArcadeCamera__curSenseY = ARCADE_TOTAL_Y_MP * cfg
+    self._ArcadeCamera__curScrollSense = scroll
+    self._ArcadeCamera__updatedByKeyboard = updatedByKeyboard
+    if not updatedByKeyboard:
         self._ArcadeCamera__autoUpdateDxDyDz.set(0)
         self._ArcadeCamera__update(dx, dy, dz, rotateMode, zoomMode)
+        return
+    self._ArcadeCamera__autoUpdateDxDyDz.set(dx, dy, dz)
 
 
 @overrideIn(ArcadeCamera)
@@ -159,38 +200,38 @@ def __updateAngles(func, self, dx, dy):
 
 @overrideIn(SniperCamera)
 def update(func, self, dx, dy, dz, updatedByKeyboard=False):
-    cfg = self._cfg['keySensitivity'] if updatedByKeyboard else CameraWithSettings._CameraWithSettings__configs[ArcadeCamera.__name__]['sensitivity']
-    cfg_MP = cfg * SNIPER_SENS_MP
-    sens_MP = self.__sensitivityMultiplier
-    self.__curSenseX = cfg_MP * SNIPER_X_MP
-    self.__curSenseY = cfg_MP * SNIPER_Y_MP
-    self._SniperCamera__curScrollSense = self._cfg['keySensitivity'] if updatedByKeyboard else self._cfg['scrollSensitivity']
-    self.__curSenseX *= sens_MP
-    self.__curSenseY *= sens_MP
+    cfgData = self._cfg
     if updatedByKeyboard:
-        self._SniperCamera__autoUpdateDxDyDz.set(dx, dy, dz)
+        cfg = cfgData['keySensitivity']
+        scroll = cfg
     else:
+        cfg = getArcadeSensitivity()
+        scroll = cfgData['scrollSensitivity']
+    finalSensitivity = (cfg * self._SniperCamera__sensitivityMultiplier)
+    self._SniperCamera__curSenseX = (SNIPER_TOTAL_X_MP * finalSensitivity)
+    self._SniperCamera__curSenseY = (SNIPER_TOTAL_Y_MP * finalSensitivity)
+    self._SniperCamera__curScrollSense = scroll
+    if not updatedByKeyboard:
         self._SniperCamera__autoUpdateDxDyDz.set(0, 0, 0)
         self._SniperCamera__rotateAndZoom(dx, dy, dz)
+        return
+    self._SniperCamera__autoUpdateDxDyDz.set(dx, dy, dz)
 
 
 @overrideIn(SniperCamera)
 def __rotateAndZoom(func, self, dx, dy, dz):
-    yawDelta, pitchDelta = calcYawPitchDelta(self._cfg, self.__curSenseX, self.__curSenseY, dx, dy)
+    yawDelta, pitchDelta = calcYawPitchDelta(self._cfg, self._SniperCamera__curSenseX, self._SniperCamera__curSenseY, dx, dy)
     self._SniperCamera__aimingSystem.handleMovement(yawDelta, pitchDelta)
     self._SniperCamera__setupZoom(dz)
 
 
 @overrideIn(SniperCamera)
 def __updateCrosshairMatrix(func, self):
-    aspectRatio = BigWorld.getAspectRatio()
-    aspectRatio_MDH = aspectRatio * 0.75
-    arcadeFov = FovExtended.instance().actualDefaultVerticalFov
     currentFov = BigWorld.projection().fov
-    tanCurrentFov = math.tan(currentFov / 2)
-    tanSniper = tanCurrentFov * aspectRatio_MDH
-    tanArcade = math.tan(arcadeFov / 2) * aspectRatio_MDH
-    self.__sensitivityMultiplier = math.atan(tanSniper) / math.atan(tanArcade)
-    curClipPlaneScale = tanCurrentFov
-    aimMarkerDistance = self._SniperCamera__aimMarkerDistance * self._DEFAULT_CLIP_PLANE_SCALE / curClipPlaneScale
+    tanCurrentFov = math.tan(currentFov * 0.5)
+    aspectRatio, denominator = getMonitorDistanceHorizontalData()
+    totalTanCurrentFov = (tanCurrentFov * aspectRatio)
+    self._SniperCamera__sensitivityMultiplier = (math.atan(totalTanCurrentFov) / denominator)
+    invTanCurrentFov = (1.0 / tanCurrentFov)
+    aimMarkerDistance = (self._SniperCamera__aimMarkerDistance * self._DEFAULT_CLIP_PLANE_SCALE * invTanCurrentFov)
     self._SniperCamera__crosshairMatrix = createCrosshairMatrix(offsetFromNearPlane=aimMarkerDistance)
