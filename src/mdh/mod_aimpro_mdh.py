@@ -1,4 +1,4 @@
-import os, json, math, BigWorld
+import os, json, copy, math, BigWorld
 import AvatarInputHandler.DynamicCameras
 from AvatarInputHandler.DynamicCameras import CameraWithSettings, createCrosshairMatrix
 from AvatarInputHandler.DynamicCameras.ArcadeCamera import ArcadeCamera
@@ -17,7 +17,6 @@ def isClientWG():
 
 
 def overrideIn(cls, condition = lambda: True):
-
     def _overrideMethod(func):
         if not condition():
             return func
@@ -34,63 +33,95 @@ def overrideIn(cls, condition = lambda: True):
 
         setattr(cls, funcName, wrapper)
         return wrapper
+
     return _overrideMethod
 
 
+MOD_NAME = 'mod_aimpro_mdh'
+CONFIG_NAME = 'mdh'
+METHOD_KEY = CONFIG_NAME.upper()
+METHOD_DEFAULT = 100.0 if CONFIG_NAME in ('jth', 'jtv') else 0.0
+
+CONFIG_VERSION = 2
+
 DEFAULT_CONFIG = {
+    "ConfigVersion": CONFIG_VERSION,
     "Arcade": {
         "Y_Multiplier": "1.0",
         "X_Multiplier": "1.0",
         "Sensitivity_Multiplier": "1.0"
     },
     "Sniper": {
+        METHOD_KEY: str(METHOD_DEFAULT),
         "Y_Multiplier": "1.0",
         "X_Multiplier": "1.0",
-        "Sensitivity_Multiplier": "1.0"
+        "Sensitivity_Multiplier": "1.0",
+        "Sensitivity_Multiplier_x1": "1.0"
     }
 }
 
-CONFIG_PATH = os.path.join('mods', 'configs', 'AimPro', 'config.json')
+CONFIG_PATH = os.path.join('mods', 'configs', 'AimPro', CONFIG_NAME + '.json')
 CONFIG_DIR = os.path.dirname(CONFIG_PATH)
 
-def ensureConfigExists():
-    if os.path.isfile(CONFIG_PATH):
-        return
-
+def writeDefaultConfig():
     try:
         if not os.path.isdir(CONFIG_DIR):
             os.makedirs(CONFIG_DIR)
-
         with open(CONFIG_PATH, 'w') as f:
             json.dump(DEFAULT_CONFIG, f, indent=4)
-
-        print('[mod_aimpro_mdh60] config.json created with defaults')
+        print('[%s] %s.json created' % (MOD_NAME, CONFIG_NAME))
+        return True
     except Exception as e:
-        print('[mod_aimpro_mdh60] Failed to create config.json:', e)
+        print('[%s] Failed to write %s.json: %r' % (MOD_NAME, CONFIG_NAME, e))
+        return False
 
-def loadConfig():
-    ensureConfigExists()
-
+def ensureConfigExists():
+    if not os.path.isfile(CONFIG_PATH):
+        writeDefaultConfig()
+        return copy.deepcopy(DEFAULT_CONFIG)
     try:
         with open(CONFIG_PATH, 'r') as f:
-            return json.load(f)
-    except Exception:
-        print('[mod_aimpro_mdh60] Failed to load config.json, using defaults')
-        return DEFAULT_CONFIG.copy()
+            data = json.load(f)
+    except Exception as e:
+        print('[%s] Failed to read %s (%r), recreating' % (MOD_NAME, CONFIG_PATH, e))
+        writeDefaultConfig()
+        return copy.deepcopy(DEFAULT_CONFIG)
+    rawVersion = data.get("ConfigVersion")
+    if isinstance(rawVersion, bool) or not isinstance(rawVersion, int):
+        fileVersion = None
+    else:
+        fileVersion = rawVersion
+    if fileVersion != CONFIG_VERSION:
+        print('[%s] Config version mismatch (%r -> %d), recreating' % (MOD_NAME, rawVersion, CONFIG_VERSION))
+        writeDefaultConfig()
+        return copy.deepcopy(DEFAULT_CONFIG)
+    return data
+
+def loadConfig():
+    return ensureConfigExists()
 
 CONFIG = loadConfig()
 
+def safeFloat(value, default=1.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        print('[%s] Invalid float value %r, using %r' % (MOD_NAME, value, default))
+        return default
+
 ARCADE_CFG = CONFIG.get('Arcade', {})
-ARCADE_Y_MP  = float(ARCADE_CFG.get('Y_Multiplier', 1.0))
-ARCADE_X_MP  = float(ARCADE_CFG.get('X_Multiplier', 1.0))
-ARCADE_SENS_MP = float(ARCADE_CFG.get('Sensitivity_Multiplier', 1.0))
+ARCADE_Y_MP  = safeFloat(ARCADE_CFG.get('Y_Multiplier', 1.0))
+ARCADE_X_MP  = safeFloat(ARCADE_CFG.get('X_Multiplier', 1.0))
+ARCADE_SENS_MP = safeFloat(ARCADE_CFG.get('Sensitivity_Multiplier', 1.0))
 ARCADE_TOTAL_X_MP = (ARCADE_SENS_MP * ARCADE_X_MP)
 ARCADE_TOTAL_Y_MP = (ARCADE_SENS_MP * ARCADE_Y_MP)
 
 SNIPER_CFG = CONFIG.get('Sniper', {})
-SNIPER_Y_MP  = float(SNIPER_CFG.get('Y_Multiplier', 1.0))
-SNIPER_X_MP  = float(SNIPER_CFG.get('X_Multiplier', 1.0))
-SNIPER_SENS_MP = float(SNIPER_CFG.get('Sensitivity_Multiplier', 1.0))
+SNIPER_METHOD_VALUE = safeFloat(SNIPER_CFG.get(METHOD_KEY), METHOD_DEFAULT)
+SNIPER_Y_MP  = safeFloat(SNIPER_CFG.get('Y_Multiplier', 1.0))
+SNIPER_X_MP  = safeFloat(SNIPER_CFG.get('X_Multiplier', 1.0))
+SNIPER_SENS_MP = safeFloat(SNIPER_CFG.get('Sensitivity_Multiplier', 1.0))
+SNIPER_SENS_MP_X1 = float(SNIPER_CFG.get('Sensitivity_Multiplier_x1', 1.0))
 SNIPER_TOTAL_X_MP = (SNIPER_SENS_MP * SNIPER_X_MP)
 SNIPER_TOTAL_Y_MP = (SNIPER_SENS_MP * SNIPER_Y_MP)
 
@@ -110,12 +141,24 @@ def getMonitorDistanceHorizontalData():
     global CACHED_MDH_DATA, LAST_KNOWN_ARCADE_FOV, LAST_KNOWN_ASPECT_RATIO
     arcadeFov = FovExtended.instance().actualDefaultVerticalFov
     aspectRatio = BigWorld.getAspectRatio()
-    if CACHED_MDH_DATA is None or arcadeFov != LAST_KNOWN_ARCADE_FOV or aspectRatio != LAST_KNOWN_ASPECT_RATIO:
-        LAST_KNOWN_ARCADE_FOV = arcadeFov
-        LAST_KNOWN_ASPECT_RATIO = aspectRatio
-        totalAspectRatio = (aspectRatio * 0.60)
-        tanArcadeFov = math.tan(arcadeFov * 0.5)
-        CACHED_MDH_DATA = (totalAspectRatio, math.atan(tanArcadeFov * totalAspectRatio))
+    if (CACHED_MDH_DATA is not None and arcadeFov == LAST_KNOWN_ARCADE_FOV and aspectRatio == LAST_KNOWN_ASPECT_RATIO):
+        return CACHED_MDH_DATA
+    LAST_KNOWN_ARCADE_FOV = arcadeFov
+    LAST_KNOWN_ASPECT_RATIO = aspectRatio
+    tanArcadeFov = math.tan(arcadeFov * 0.5)
+    mdh = SNIPER_METHOD_VALUE / 100.0
+    if mdh == 0.0:
+        CACHED_MDH_DATA = (0, tanArcadeFov, None, None)
+        return CACHED_MDH_DATA
+    totalAspectRatio = aspectRatio * mdh
+    if totalAspectRatio > 0:
+        mode = 1
+        mdhAbs = totalAspectRatio
+    else:
+        mode = 2
+        mdhAbs = -totalAspectRatio
+    atanMdhAbsTanArcade = math.atan(mdhAbs * tanArcadeFov)
+    CACHED_MDH_DATA = (mode, tanArcadeFov, mdhAbs, atanMdhAbsTanArcade)
     return CACHED_MDH_DATA
 
 
@@ -142,14 +185,13 @@ def modSniperInit(self, *args, **kwargs):
 SniperCamera.__init__ = modSniperInit
 
 
-@overrideIn(ArcadeCamera, condition=isClientLesta)
+@overrideIn(ArcadeCamera, condition = isClientLesta)
 def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedByKeyboard = False):
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
         self._ArcadeCamera__overScrollProtector.updateOnScroll(eScrollDirection)
-    cfgData = self._cfg
     if updatedByKeyboard:
-        cfg = cfgData['keySensitivity']
+        cfg = self._cfg['keySensitivity']
         scroll = cfg
     else:
         cfg = self._ArcadeCamera__sensitivity
@@ -165,7 +207,7 @@ def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedBy
     self._ArcadeCamera__autoUpdateDxDyDz.set(dx, dy, dz)
 
 
-@overrideIn(ArcadeCamera, condition=isClientWG)
+@overrideIn(ArcadeCamera, condition = isClientWG)
 def update(func, self, dx, dy, dz, rotateMode=True, zoomMode=True, updatedByKeyboard=False):
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
@@ -229,9 +271,16 @@ def __rotateAndZoom(func, self, dx, dy, dz):
 def __updateCrosshairMatrix(func, self):
     currentFov = BigWorld.projection().fov
     tanCurrentFov = math.tan(currentFov * 0.5)
-    aspectRatio, denominator = getMonitorDistanceHorizontalData()
-    totalTanCurrentFov = (tanCurrentFov * aspectRatio)
-    self._SniperCamera__sensitivityMultiplier = (math.atan(totalTanCurrentFov) / denominator)
-    invTanCurrentFov = (1.0 / tanCurrentFov)
-    aimMarkerDistance = (self._SniperCamera__aimMarkerDistance * self._DEFAULT_CLIP_PLANE_SCALE * invTanCurrentFov)
+    aimMarkerDistance = (self._SniperCamera__aimMarkerDistance * self._DEFAULT_CLIP_PLANE_SCALE / tanCurrentFov)
     self._SniperCamera__crosshairMatrix = createCrosshairMatrix(offsetFromNearPlane=aimMarkerDistance)
+
+    mode, tanArcadeFov, mdhAbs, atanMdhAbsTanArcade = getMonitorDistanceHorizontalData()
+    if mode == 0:
+        multiplier = tanCurrentFov / tanArcadeFov
+    elif mode == 1:
+        multiplier = (math.atan(mdhAbs * tanCurrentFov) / atanMdhAbsTanArcade)
+    else:
+        multiplier = (2.0 * tanCurrentFov / tanArcadeFov - math.atan(mdhAbs * tanCurrentFov) / atanMdhAbsTanArcade)
+    if self._SniperCamera__zoom == 1.0:
+        multiplier *= SNIPER_SENS_MP_X1
+    self._SniperCamera__sensitivityMultiplier = multiplier

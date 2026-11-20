@@ -1,4 +1,4 @@
-import os, json
+import os, json, copy
 import AvatarInputHandler.DynamicCameras
 from AvatarInputHandler.DynamicCameras.ArcadeCamera import ArcadeCamera
 from AvatarInputHandler.DynamicCameras.SniperCamera import SniperCamera
@@ -32,10 +32,17 @@ def overrideIn(cls, condition = lambda: True):
 
         setattr(cls, funcName, wrapper)
         return wrapper
+
     return _overrideMethod
 
 
+MOD_NAME = 'mod_aimpro_xy'
+CONFIG_NAME = 'xy'
+
+CONFIG_VERSION = 2
+
 DEFAULT_CONFIG = {
+    "ConfigVersion": CONFIG_VERSION,
     "Arcade": {
         "Y_Multiplier": "1.0",
         "X_Multiplier": "1.0",
@@ -44,51 +51,72 @@ DEFAULT_CONFIG = {
     "Sniper": {
         "Y_Multiplier": "1.0",
         "X_Multiplier": "1.0",
-        "Sensitivity_Multiplier": "1.0"
+        "Sensitivity_Multiplier": "1.0",
+        "Sensitivity_Multiplier_x1": "1.0"
     }
 }
 
-CONFIG_PATH = os.path.join('mods', 'configs', 'AimPro', 'config.json')
+CONFIG_PATH = os.path.join('mods', 'configs', 'AimPro', CONFIG_NAME + '.json')
 CONFIG_DIR = os.path.dirname(CONFIG_PATH)
 
-def ensureConfigExists():
-    if os.path.isfile(CONFIG_PATH):
-        return
-
+def writeDefaultConfig():
     try:
         if not os.path.isdir(CONFIG_DIR):
             os.makedirs(CONFIG_DIR)
-
         with open(CONFIG_PATH, 'w') as f:
             json.dump(DEFAULT_CONFIG, f, indent=4)
-
-        print('[mod_aimpro_xy] config.json created with defaults')
+        print('[%s] %s.json created' % (MOD_NAME, CONFIG_NAME))
+        return True
     except Exception as e:
-        print('[mod_aimpro_xy] Failed to create config.json:', e)
+        print('[%s] Failed to write %s.json: %r' % (MOD_NAME, CONFIG_NAME, e))
+        return False
 
-def loadConfig():
-    ensureConfigExists()
-
+def ensureConfigExists():
+    if not os.path.isfile(CONFIG_PATH):
+        writeDefaultConfig()
+        return copy.deepcopy(DEFAULT_CONFIG)
     try:
         with open(CONFIG_PATH, 'r') as f:
-            return json.load(f)
-    except Exception:
-        print('[mod_aimpro_xy] Failed to load config.json, using defaults')
-        return DEFAULT_CONFIG.copy()
+            data = json.load(f)
+    except Exception as e:
+        print('[%s] Failed to read %s (%r), recreating' % (MOD_NAME, CONFIG_PATH, e))
+        writeDefaultConfig()
+        return copy.deepcopy(DEFAULT_CONFIG)
+    rawVersion = data.get("ConfigVersion")
+    if isinstance(rawVersion, bool) or not isinstance(rawVersion, int):
+        fileVersion = None
+    else:
+        fileVersion = rawVersion
+    if fileVersion != CONFIG_VERSION:
+        print('[%s] Config version mismatch (%r -> %d), recreating' % (MOD_NAME, rawVersion, CONFIG_VERSION))
+        writeDefaultConfig()
+        return copy.deepcopy(DEFAULT_CONFIG)
+    return data
+
+def loadConfig():
+    return ensureConfigExists()
 
 CONFIG = loadConfig()
 
+def safeFloat(value, default=1.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        print('[%s] Invalid float value %r, using %r' % (MOD_NAME, value, default))
+        return default
+
 ARCADE_CFG = CONFIG.get('Arcade', {})
-ARCADE_Y_MP  = float(ARCADE_CFG.get('Y_Multiplier', 1.0))
-ARCADE_X_MP  = float(ARCADE_CFG.get('X_Multiplier', 1.0))
-ARCADE_SENS_MP = float(ARCADE_CFG.get('Sensitivity_Multiplier', 1.0))
+ARCADE_Y_MP  = safeFloat(ARCADE_CFG.get('Y_Multiplier', 1.0))
+ARCADE_X_MP  = safeFloat(ARCADE_CFG.get('X_Multiplier', 1.0))
+ARCADE_SENS_MP = safeFloat(ARCADE_CFG.get('Sensitivity_Multiplier', 1.0))
 ARCADE_TOTAL_X_MP = (ARCADE_SENS_MP * ARCADE_X_MP)
 ARCADE_TOTAL_Y_MP = (ARCADE_SENS_MP * ARCADE_Y_MP)
 
 SNIPER_CFG = CONFIG.get('Sniper', {})
-SNIPER_Y_MP  = float(SNIPER_CFG.get('Y_Multiplier', 1.0))
-SNIPER_X_MP  = float(SNIPER_CFG.get('X_Multiplier', 1.0))
-SNIPER_SENS_MP = float(SNIPER_CFG.get('Sensitivity_Multiplier', 1.0))
+SNIPER_Y_MP  = safeFloat(SNIPER_CFG.get('Y_Multiplier', 1.0))
+SNIPER_X_MP  = safeFloat(SNIPER_CFG.get('X_Multiplier', 1.0))
+SNIPER_SENS_MP = safeFloat(SNIPER_CFG.get('Sensitivity_Multiplier', 1.0))
+SNIPER_SENS_MP_X1 = float(SNIPER_CFG.get('Sensitivity_Multiplier_x1', 1.0))
 SNIPER_TOTAL_X_MP = (SNIPER_SENS_MP * SNIPER_X_MP)
 SNIPER_TOTAL_Y_MP = (SNIPER_SENS_MP * SNIPER_Y_MP)
 
@@ -116,14 +144,13 @@ def modSniperInit(self, *args, **kwargs):
 SniperCamera.__init__ = modSniperInit
 
 
-@overrideIn(ArcadeCamera, condition=isClientLesta)
+@overrideIn(ArcadeCamera, condition = isClientLesta)
 def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedByKeyboard = False):
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
         self._ArcadeCamera__overScrollProtector.updateOnScroll(eScrollDirection)
-    cfgData = self._cfg
     if updatedByKeyboard:
-        cfg = cfgData['keySensitivity']
+        cfg = self._cfg['keySensitivity']
         scroll = cfg
     else:
         cfg = self._ArcadeCamera__sensitivity
@@ -139,7 +166,7 @@ def update(func, self, dx, dy, dz, rotateMode = True, zoomMode = True, updatedBy
     self._ArcadeCamera__autoUpdateDxDyDz.set(dx, dy, dz)
 
 
-@overrideIn(ArcadeCamera, condition=isClientWG)
+@overrideIn(ArcadeCamera, condition = isClientWG)
 def update(func, self, dx, dy, dz, rotateMode=True, zoomMode=True, updatedByKeyboard=False):
     eScrollDirection = EScrollDir.convertDZ(dz)
     if eScrollDirection:
@@ -183,6 +210,8 @@ def update(func, self, dx, dy, dz, updatedByKeyboard=False):
         scroll = cfgData['scrollSensitivity']
     invZoom = (1.0 / self._SniperCamera__zoom)
     finalSensitivity = (cfg * invZoom)
+    if self._SniperCamera__zoom == 1.0:
+        finalSensitivity *= SNIPER_SENS_MP_X1
     self._SniperCamera__curSenseX = (SNIPER_TOTAL_X_MP * finalSensitivity)
     self._SniperCamera__curSenseY = (SNIPER_TOTAL_Y_MP * finalSensitivity)
     self._SniperCamera__curScrollSense = scroll
