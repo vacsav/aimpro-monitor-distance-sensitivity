@@ -16,22 +16,23 @@ The multiplier(slider in settings) **`arcadeMode`** adjusts the sensitivity for 
 **`Aspect Ratio`** is the ratio between the width and height of the screen  
 ![AspectRatio](assets/images/AspectRatio.png)
 
-**`Monitor Distance Vertical`** = **`[MDV]`** - does not depend on aspect ratio
-![VFOV](assets/images/VFOV.png)
-
 **`Monitor Distance Horizontal`** = **`[MDH]`** - directly dependent on aspect ratio
 ![HFOV](assets/images/HFOV.png)
 ![MDH](assets/images/MDH.png)
 
-There are 7 methods to choose from:
+**`Monitor Distance Vertical`** = **`[MDV]`** - does not depend on aspect ratio
+![VFOV](assets/images/VFOV.png)
 
-- **`Focal Length`** ( Recommended for everyone ) - **`MDV(H) 0%`** - means that the speed of tracking a moving target will be the same
-- **`Jedi's Trick`** - this method is using the average 360 distance between **`MDV 0%`** and **`MDV 100%`** for the conversion
-- **`MDV 100%`** - this is exactly the same as the **`MDH`**, but is instead using the vertical **`FOV`**
-- **`MDV 133%`** - this is exactly the same as the **`MDH`**, but is instead using the vertical **`FOV`**
-- **`MDH 60%`** - means moving the crosshair to aim at `60%` of the distance between the crosshair and the edge of the monitor is the same
-- **`MDH 75%`** - means moving the crosshair to aim at `75%` of the distance between the crosshair and the edge of the monitor is the same
-- **`MDH 100%`** - will match the movement to aim at something at the edge of the monitor
+There are 4 methods to choose from:
+
+- **`MDH`** - means moving the crosshairs for aim by `%` of the distance between the crosshair and the edge of the monitor
+  - Default value **`0%`**
+- **`MDV`** - this is exactly the same as the **`MDH`**, but is instead using the vertical **`FOV`**
+  - Default value **`0%`**
+- **`JTH`** - this method is using the average 360 distance between **`MDH 0%`** and **`MDH 100%`** for the conversion
+  - Default value **`100%`**
+- **`JTV`** - this method is using the average 360 distance between **`MDV 0%`** and **`MDV 100%`** for the conversion
+  - Default value **`100%`**
 
 LowMM
 ![LowMM](assets/images/LowMMExample.png)
@@ -44,7 +45,7 @@ Example from popular games:, with multiplier `1`:
 - CS2(CS:GO) - **`MDV 133%`**
 - RUST - **`MDV 100%`**
 - VALORANT - **`MDH 100%`**
-- Apex Legends - **`Focal Length`**
+- Apex Legends - **`0% MDH or MDV = Focal Length`**
 
 Example of sensitivity calculation with mod in WoT:
 
@@ -54,12 +55,12 @@ Zoom = **`sniperMode`** sensitivity
 
 > ***note**: the sensitivity values x2, x4, x8 are not for **`preferences.xml`** but for demonstration*
 
-**`Focal Length`**
+**`0% MDH or MDV = Focal Length`**
 - x2 = 0.47180057
 - x4 = 0.232665
 - x8 = 0.11593625
 
-**`Jedi's Trick`**
+**`JTV`**
 - x2 = 0.485491
 - x4 = 0.241021
 - x8 = 0.1202975
@@ -94,10 +95,13 @@ Zoom = **`sniperMode`** sensitivity
 - Adjust the **`arcadeMode`** sensitivity using the slider in the game settings  
 **or**  
 - Adjust sensitivity by multiplier in the **`preferences.xml`** file at the path:
-  - Go to **`%APPDATA%\Wargaming.net\WorldOfTanks`** or **`%APPDATA%\Lesta\MirTankov`**
+  - Go to **`For WG from version 2.4+, use mods to adjust through the values`** or **`%APPDATA%\Lesta\MirTankov`**
   - Edit **`preferences.xml`**
   - Change **`<sensitivity>`** in **`<arcadeMode>`**
   - Save your changes
+- When you launch the game, a configuration file for the selected method is created; there, you can set the value to a positive number to increase sensitivity or to a negative number to decrease it
+  - **`"MDH": "100.0"`** or **`"MDH": "-100.0"`**
+  - After making changes to the configuration, need to restart the game
 
 ### Features
 
@@ -136,7 +140,7 @@ Thanks to:
 
 1. Download **`unzip.AimPro.zip`**
 2. Unzip
-3. Choose 1 of 7 methods
+3. Choose 1 of 4 methods
 4. Copy the selected **`AimPro-method`** file into **`[WoT or MT game directory]/mods/[version]/`** directory
 
 ## RU
@@ -151,22 +155,23 @@ Thanks to:
 **`Aspect Ratio`** - это соотношение между шириной и высотой экрана
 ![AspectRatio](assets/images/AspectRatio.png)
 
-**`Monitor Distance Vertical`** = **`[MDV]`** - не зависит от соотношения сторон
-![VFOV](assets/images/VFOV.png)
-
 **`Monitor Distance Horizontal`** = **`[MDH]`** - напрямую зависит от соотношения сторон  
 ![HFOV](assets/images/HFOV.png)
 ![MDH](assets/images/MDH.png)
 
-На выбор предлагается 7 методов:
+**`Monitor Distance Vertical`** = **`[MDV]`** - не зависит от соотношения сторон
+![VFOV](assets/images/VFOV.png)
 
-- **`Focal Length`** ( Рекомендуется для всех ) - **`MDV(H) 0%`** - означает, что скорость отслеживания движущейся цели будет одинаковой
-- **`Jedi's Trick`** - этот метод использует среднее расстояние 360 между **`MDV 0%`** и **`MDV 100%`** для конвертации
-- **`MDV 100%`** - это то же самое, что и **`MDH`**, но вместо этого используется вертикальный **`FOV`**
-- **`MDV 133%`** - это то же самое, что и **`MDH`**, но вместо этого используется вертикальный **`FOV`**
-- **`MDH 60%`** - означает перемещение перекрестия для прицеливания на `60%` от расстояния между перекрестием и краем монитора
-- **`MDH 75%`** - означает перемещение перекрестия для прицеливания на `75%` от расстояния между перекрестием и краем монитора
-- **`MDH 100%`** - будет соответствовать перемещению, чтобы нацелиться на что-то у края монитора
+На выбор предлагается 4 методов:
+
+- **`MDH** - означает перемещение перекрестия для прицеливания на `%` от расстояния между перекрестием и краем монитора
+  - Значение по умолчанию **`0%`**
+- **`MDV`** - это то же самое, что и **`MDH`**, но вместо этого используется вертикальный **`FOV`**
+  - Значение по умолчанию **`0%`**
+- **`JTH`** - этот метод использует среднее расстояние 360 между **`MDH 0%`** и **`MDH 100%`** для конвертации
+  - Значение по умолчанию **`100%`**
+- **`JTV`** - этот метод использует среднее расстояние 360 между **`MDV 0%`** и **`MDV 100%`** для конвертации
+  - Значение по умолчанию **`100%`**
 
 LowMM
 ![LowMM](assets/images/LowMMExample.png)
@@ -179,7 +184,7 @@ HighMM
 - CS2(CS:GO) - **`MDV 133%`**
 - RUST - **`MDV 100%`**
 - VALORANT - **`MDH 100%`**
-- Apex Legends - **`Focal Length`**
+- Apex Legends - **`0% MDH или MDV = Focal Length`**
 
 Пример расчета чувствительности с помощью мода в WoT и MT:
 
@@ -188,12 +193,12 @@ HighMM
 
 > ***примечание**: значения чувствительности x2, x4, x8 не для **`preferences.xml`**, а для демонстрации*
 
-**`Focal Length`**
+**`0% MDH or MDV = Focal Length`**
 - x2 = 0.47180057
 - x4 = 0.232665
 - x8 = 0.11593625
 
-**`Jedi's Trick`**
+**`JTV`**
 - x2 = 0.485491
 - x4 = 0.241021
 - x8 = 0.1202975
@@ -228,10 +233,13 @@ HighMM
 - Настройте чувствительность режима **`arcadeMode`** с помощью ползунка в настройках игры  
 **или**  
 - Настройте чувствительность с помощью множителя в файле **`preferences.xml`** по пути:
-  - Перейдите в **`%APPDATA%\Wargaming.net\WorldOfTanks`** или **`%APPDATA%\Lesta\MirTankov`**
+  - Перейдите в **`Для WG версии 2.4 и выше используйте моды для настройки значений`** или **`%APPDATA%\Lesta\MirTankov`**
   - Отредактируйте **`preferences.xml`**
   - Измените **`<sensitivity>`** в **`<arcadeMode>`**
   - Сохраните изменения
+- При запуске игры создаётся файл настроек для выбранного метода; в нём можно установить положительное значение для увеличения чувствительности или отрицательное — для её уменьшения.
+  -   - **`"MDH": "100.0"`** или  **`"MDH": "-100.0"`**
+  - После внесения изменений в файл настроек необходимо перезапустить игру
 
 ### Особенности
 
@@ -270,5 +278,5 @@ HighMM
 
 1. Скачайте **`unzip.AimPro.zip`**
 2. Разархивируйте
-3. Выберите 1 из 7 методов
+3. Выберите 1 из 4 методов
 4. Скопируйте выбранный файл **`AimPro-метод`** в директорию **`[директория игры WoT или MT]/mods/[версия]/`**
